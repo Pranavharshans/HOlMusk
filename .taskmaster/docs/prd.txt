@@ -1,0 +1,60 @@
+<context>
+# Overview  
+This product is a web application that allows users to upload a video from their local system. The app uses Google Gemini 2.5's video understanding capabilities to analyze the video and generate detailed notes in markdown format, which are then displayed to the user. The solution is designed for students, professionals, and content creators who want to quickly extract structured notes or summaries from video content.
+
+# Core Features  
+- **Video Upload**: Users can upload video files (mp4, mov, etc.) from their device via a simple UI.
+- **Video Analysis with Gemini 2.5**: The backend processes the uploaded video using Gemini 2.5's multimodal API to extract key information, summarize content, and generate notes.
+- **Markdown Notes Generation**: The output from Gemini is formatted as markdown, making it easy to read, copy, or export.
+- **Notes Display**: The markdown notes are rendered in the app with proper formatting and syntax highlighting.
+- **Progress & Error Feedback**: Users see upload and processing progress, and receive clear error messages if something fails.
+
+# User Experience  
+- **User Personas**: Students, researchers, professionals, and content creators who need to extract notes from video lectures, meetings, or tutorials.
+- **Key User Flows**:
+  1. User visits the app and is prompted to upload a video.
+  2. User selects a video file and uploads it.
+  3. The app shows upload progress, then processing progress.
+  4. Once analysis is complete, markdown notes are displayed in a rich viewer.
+  5. User can copy, download, or share the notes.
+- **UI/UX Considerations**: Clean, modern interface with drag-and-drop upload, clear progress indicators, and responsive markdown rendering. Accessibility and mobile support are prioritized.
+</context>
+<PRD>
+# Technical Architecture  
+- **Frontend**: Next.js (TypeScript, App Router, Tailwind CSS), file upload UI, markdown rendering (e.g., react-markdown).
+- **Backend API**: Next.js API routes or a serverless function to handle file uploads and communicate with Gemini 2.5 API.
+- **Gemini Integration**: Use @google/genai SDK to send video data to Gemini 2.5, request video understanding, and receive markdown notes.
+- **Storage**: Temporary in-memory or disk storage for uploaded files during processing (no persistent storage required for MVP).
+- **Security**: Validate file types, size limits, and handle API keys securely (API key on server side only).
+
+# Development Roadmap  
+- **MVP Requirements**:
+  1. Video upload UI and API endpoint
+  2. Integration with Gemini 2.5 for video analysis
+  3. Markdown notes generation and display
+  4. Progress and error feedback
+- **Future Enhancements**:
+  - User authentication and history of uploads
+  - Support for longer videos and chunked processing
+  - Export notes to PDF/Word
+  - Multi-language support
+  - Real-time streaming analysis
+
+# Logical Dependency Chain
+- Foundation: Set up Next.js app, install dependencies, configure environment variables
+- Step 1: Implement video upload UI and backend endpoint
+- Step 2: Integrate Gemini 2.5 API for video analysis
+- Step 3: Parse and render markdown notes in frontend
+- Step 4: Add progress, error handling, and polish UI
+- Step 5: (Optional) Add user accounts, export, and advanced features
+
+# Risks and Mitigations  
+- **Gemini API Limitations**: Video size or length limits; mitigate by restricting uploads and chunking if needed.
+- **API Key Security**: Never expose Gemini API key in frontend; use server-side calls only.
+- **Processing Latency**: Large videos may take time; show progress and set user expectations.
+- **Cost Management**: Monitor API usage and set quotas to avoid unexpected costs.
+
+# Appendix  
+- **Research**: Refer to @google/genai and Gemini 2.5 documentation for video analysis and markdown generation.
+- **Technical Specs**: Next.js 14+, TypeScript, Tailwind CSS, @google/genai SDK, react-markdown for rendering.
+</PRD> 

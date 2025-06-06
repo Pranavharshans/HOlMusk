@@ -457,22 +457,6 @@ export default function Home() {
                   </button>
                 </div>
                 
-                {/* Static Test Block */}
-                <article className={classNames("prose lg:prose-xl mb-4", darkMode ? "prose-invert" : "")}>
-                  <h1>Test Static Heading</h1>
-                  <p>This is a static paragraph. It should be styled by Tailwind Typography.</p>
-                  <ul>
-                    <li>Static list item 1</li>
-                    <li>Static list item 2</li>
-                  </ul>
-                  <p><code>This is some static inline code.</code></p>
-                  <pre><code>// This is a static code block
-const greeting = "Hello, world!";
-console.log(greeting);</code></pre>
-                </article>
-                <hr className={classNames("my-6", darkMode ? "border-gray-700" : "border-gray-300")} />
-                {/* End Static Test Block */}
-
                 <div className={classNames(
                   "prose max-w-none",
                   darkMode ? "prose-invert prose-blue" : "prose-blue"

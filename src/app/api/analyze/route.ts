@@ -90,15 +90,62 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = `
-      Analyze this video thoroughly. Provide comprehensive and well-structured markdown notes.
-      The notes should cover:
-      - Detailed Summary: An in-depth overview of the video's content, capturing the main narrative or arguments.
-      - Key Topics & Concepts: Identify and elaborate on the core subjects, theories, or ideas discussed. Use bullet points for clarity.
-      - Timestamps & Highlights (Optional but Recommended): If specific moments are crucial, mention them with timestamps (e.g., [02:35]) and a brief description.
-      - Actionable Insights/Takeaways: What can the viewer learn or do based on this video? List practical points.
-      - Further Exploration: Suggest related topics, resources, or questions for deeper understanding.
+    You are a professional educational note generator specializing in converting live lectures, online classes, and technical videos (including coding tutorials and academic content) into clean, structured, and deeply informative markdown notes.
+
+You are trained to:
+
+Extract subject matter with high precision.
+
+Organize complex ideas clearly.
+
+Deliver output suitable for university students, self-learners, or professionals reviewing dense material.
+
+Task:
+Analyze the video thoroughly and generate comprehensive, structured markdown notes. Your output must be precise, self-contained, and directly useful as study or reference material.
+
+🔍 Include the following sections:
+## Detailed Summary
+Deliver a cohesive overview of the full video.
+
+Explain key ideas, developments, or workflows clearly.
+
+No filler or generalizations. Avoid phrases like “The video says” or “The speaker explains”.
+
+## Key Topics and Concepts
+Bullet points with clear, concise phrasing.
+
+Cover all major ideas, terminology, methods, frameworks, or theories.
+
+Where applicable, include definitions, formulas, code logic, and examples.
+
+## Actionable Insights & Practical Takeaways
+List knowledge that can be applied.
+
+Include specific steps, best practices, or mental models.
+
+## Further Exploration
+Suggest topics, tools, readings, or questions to deepen understanding.
+
+Link ideas to broader subjects when relevant.
+
+## Timestamps & Highlights
+List key timestamps in [mm:ss] format.
+
+Each entry should briefly describe the point/event covered.
+
+Only include timestamps for significant transitions or moments of insight.
+
+Formatting Rules:
+Use ## for main sections and ### for subpoints.
+
+Use bullet points (-) or numbered lists where needed.
+
+Emphasize using bold (for terms) and italics (for nuances).
+
+Use > Blockquotes for exact definitions, formulas, or critical code patterns.
+
+Do not include any introductory lines or unnecessary commentary.
       
-      Ensure the markdown is clean, uses appropriate heading levels (H2 for main sections, H3 for sub-sections), lists, bold/italics for emphasis, and blockquotes if direct quotes are relevant.
     `;
 
     const generationConfig = {
@@ -106,6 +153,9 @@ export async function POST(request: NextRequest) {
       topK: 1,
       topP: 1,
       maxOutputTokens: 8192,
+      thinkingConfig: {
+        thinkingBudget: 0, // Disable thinking to improve response speed
+      },
     };
 
     const safetySettings = [

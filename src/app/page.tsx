@@ -2,6 +2,13 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { marked } from "marked";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+// Configure marked to return string synchronously
+marked.setOptions({
+  async: false
+});
 
 const ACCEPTED_VIDEO_TYPES = [
   "video/mp4",
@@ -27,6 +34,8 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [markdownNotes, setMarkdownNotes] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Check system preference for dark mode on load
@@ -187,6 +196,99 @@ export default function Home() {
     } finally {
       setIsAnalyzing(false);
       setIsUploading(false);
+    }
+  };
+
+  const downloadPDF = async () => {
+    if (!markdownNotes) {
+      setError("No notes to download");
+      return;
+    }
+
+    if (isDownloadingPDF) {
+      return; // Prevent multiple downloads
+    }
+
+    setIsDownloadingPDF(true);
+    setError(null);
+
+    try {
+      // Get the prose content element
+      const proseElement = document.querySelector('.prose');
+      if (!proseElement) {
+        throw new Error("Notes content not found");
+      }
+
+      const canvas = await html2canvas(proseElement as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: darkMode ? '#18181b' : '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      // Calculate dimensions manually since we know the canvas size
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      // If content is taller than one page, add multiple pages
+      let remainingHeight = pdfHeight;
+      let yPosition = 0;
+      
+      while (remainingHeight > 0) {
+        const pageHeight = Math.min(297, remainingHeight); // A4 height is 297mm
+        
+        pdf.addImage(
+          imgData, 
+          'PNG', 
+          0, 
+          -yPosition, 
+          pdfWidth, 
+          pdfHeight
+        );
+        
+        remainingHeight -= 297;
+        yPosition += 297;
+        
+        if (remainingHeight > 0) {
+          pdf.addPage();
+        }
+      }
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `video-notes-${timestamp}.pdf`;
+      
+      pdf.save(filename);
+    } catch (err: any) {
+      setError(err.message || "Failed to download PDF");
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
+
+  const copyMarkdown = async () => {
+    if (!markdownNotes) {
+      setError("No notes to copy");
+      return;
+    }
+
+    if (isCopying) {
+      return; // Prevent multiple operations
+    }
+
+    setIsCopying(true);
+    setError(null);
+
+    try {
+      await navigator.clipboard.writeText(markdownNotes);
+      // Brief visual feedback that copy succeeded
+      setTimeout(() => setIsCopying(false), 1000);
+    } catch (err: any) {
+      setError(err.message || "Failed to copy markdown");
+      setIsCopying(false);
     }
   };
 
@@ -441,30 +543,109 @@ export default function Home() {
                   )}>
                     Video Analysis Results
                   </h2>
-                  <button
-                    onClick={() => {
-                      setMarkdownNotes(null);
-                      setSelectedFile(null);
-                      setUploadSuccess(false);
-                      setUploadId(null);
-                    }}
-                    className={classNames(
-                      "hover:underline font-medium",
-                      darkMode ? "text-blue-400" : "text-blue-600"
-                    )}
-                  >
-                    Analyze Another Video
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={downloadPDF}
+                      disabled={isDownloadingPDF}
+                      className={classNames(
+                        "inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors",
+                        isDownloadingPDF
+                          ? "bg-gray-400 cursor-not-allowed text-white"
+                          : darkMode 
+                          ? "bg-green-600 hover:bg-green-700 text-white" 
+                          : "bg-green-600 hover:bg-green-700 text-white"
+                      )}
+                    >
+                      {isDownloadingPDF ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-5 h-5 mr-2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                          />
+                        </svg>
+                      )}
+                      {isDownloadingPDF ? 'Generating PDF...' : 'Download PDF'}
+                    </button>
+                    <button
+                      onClick={copyMarkdown}
+                      disabled={isCopying}
+                      className={classNames(
+                        "inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors",
+                        isCopying
+                          ? "bg-gray-400 cursor-not-allowed text-white"
+                          : darkMode 
+                          ? "bg-blue-600 hover:bg-blue-700 text-white border border-blue-600" 
+                          : "bg-white hover:bg-gray-50 text-blue-600 border border-blue-600"
+                      )}
+                    >
+                      {isCopying ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-5 h-5 mr-2 text-green-500"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-5 h-5 mr-2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-3a3.375 3.375 0 00-3.375 3.375v1.875m6.75-10.125a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm.75 12.75h-6a.75.75 0 01-.75-.75v-1.5a.75.75 0 01.75-.75h6a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75z"
+                          />
+                        </svg>
+                      )}
+                      {isCopying ? 'Copied!' : 'Copy Markdown'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMarkdownNotes(null);
+                        setSelectedFile(null);
+                        setUploadSuccess(false);
+                        setUploadId(null);
+                      }}
+                      className={classNames(
+                        "hover:underline font-medium",
+                        darkMode ? "text-blue-400" : "text-blue-600"
+                      )}
+                    >
+                      Analyze Another Video
+                    </button>
+                  </div>
                 </div>
                 
                 <div className={classNames(
                   "prose max-w-none",
                   darkMode ? "prose-invert prose-blue" : "prose-blue"
                 )}>
-                  <div dangerouslySetInnerHTML={{ __html: marked(markdownNotes || '') }} />
+                  <div dangerouslySetInnerHTML={{ __html: marked.parse(markdownNotes || '') as string }} />
                 </div>
+                              </div>
               </div>
-            </div>
           )}
         </div>
       </main>

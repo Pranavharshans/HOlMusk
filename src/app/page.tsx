@@ -3,12 +3,31 @@
 import React, { useRef, useState, useEffect } from "react";
 import { marked } from "marked";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 // Configure marked to return string synchronously
 marked.setOptions({
   async: false
 });
+
+// Simple function to convert markdown to clean text for PDF
+const markdownToCleanText = (markdown: string): string => {
+  return markdown
+    // Remove markdown link syntax but keep the text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove bold/italic markers but keep the text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Remove code block markers
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove horizontal rules
+    .replace(/^---+$/gm, '')
+    // Clean up extra whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
 
 const ACCEPTED_VIDEO_TYPES = [
   "video/mp4",
@@ -30,7 +49,7 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [uploadId, setUploadId] = useState<string | null>(null);
+  const [, setUploadId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [markdownNotes, setMarkdownNotes] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
@@ -156,8 +175,9 @@ export default function Home() {
       setTimeout(() => {
         setUploadProgress(0);
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || "Upload failed");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Upload failed";
+      setError(errorMessage);
       setIsUploading(false);
     }
   };
@@ -191,8 +211,9 @@ export default function Home() {
 
       const data = await response.json();
       setMarkdownNotes(data.markdown);
-    } catch (err: any) {
-      setError(err.message || "Analysis failed");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Analysis failed";
+      setError(errorMessage);
     } finally {
       setIsAnalyzing(false);
       setIsUploading(false);
@@ -213,57 +234,157 @@ export default function Home() {
     setError(null);
 
     try {
-      // Get the prose content element
-      const proseElement = document.querySelector('.prose');
-      if (!proseElement) {
-        throw new Error("Notes content not found");
-      }
-
-      const canvas = await html2canvas(proseElement as HTMLElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: darkMode ? '#18181b' : '#ffffff'
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       
-      // Calculate dimensions manually since we know the canvas size
-      const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      // Set up PDF styling
+      const pageWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const margin = 20; // 20mm margins
+      const lineHeight = 6; // Line height in mm
+      const maxWidth = pageWidth - (2 * margin); // Text width
       
-      // If content is taller than one page, add multiple pages
-      let remainingHeight = pdfHeight;
-      let yPosition = 0;
+      let yPosition = margin; // Current vertical position
       
-      while (remainingHeight > 0) {
-        const pageHeight = Math.min(297, remainingHeight); // A4 height is 297mm
+      // Add title
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Video Analysis Notes', margin, yPosition);
+      yPosition += lineHeight * 2;
+      
+      // Add timestamp
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      const timestamp = new Date().toLocaleString();
+      pdf.text(`Generated on: ${timestamp}`, margin, yPosition);
+      yPosition += lineHeight * 2;
+      
+      // Draw a line separator
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += lineHeight;
+      
+      // Convert markdown to plain text while preserving structure
+      const cleanText = markdownToCleanText(markdownNotes);
+      
+      // Process the text line by line
+      const lines = cleanText.split('\n');
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'normal');
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
         
-        pdf.addImage(
-          imgData, 
-          'PNG', 
-          0, 
-          -yPosition, 
-          pdfWidth, 
-          pdfHeight
-        );
+        // Skip empty lines but add spacing
+        if (line === '') {
+          yPosition += lineHeight * 0.5;
+          continue;
+        }
         
-        remainingHeight -= 297;
-        yPosition += 297;
+        // Handle different content types based on markdown patterns
+        if (line.startsWith('##')) {
+          // Section headers
+          yPosition += lineHeight * 0.5;
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          const headerText = line.replace(/^#+\s*/, '');
+          pdf.text(headerText, margin, yPosition);
+          yPosition += lineHeight * 1.5;
+          pdf.setFontSize(11);
+          pdf.setFont('helvetica', 'normal');
+        } else if (line.startsWith('#')) {
+          // Main headers
+          yPosition += lineHeight;
+          pdf.setFontSize(16);
+          pdf.setFont('helvetica', 'bold');
+          const headerText = line.replace(/^#+\s*/, '');
+          pdf.text(headerText, margin, yPosition);
+          yPosition += lineHeight * 1.5;
+          pdf.setFontSize(11);
+          pdf.setFont('helvetica', 'normal');
+                 } else if (line.startsWith('- ') || line.startsWith('* ')) {
+           // Bullet points
+           const bulletText = line.replace(/^[-*]\s*/, '');
+           const wrappedText = pdf.splitTextToSize(`• ${bulletText}`, maxWidth - 5);
+           
+           for (let j = 0; j < wrappedText.length; j++) {
+             if (yPosition > pageHeight - margin) {
+               pdf.addPage();
+               yPosition = margin;
+             }
+             pdf.text(wrappedText[j], margin + 5, yPosition);
+             yPosition += lineHeight;
+           }
+         } else if (/^\d+\./.test(line)) {
+           // Numbered lists
+           const wrappedText = pdf.splitTextToSize(line, maxWidth - 5);
+           
+           for (let j = 0; j < wrappedText.length; j++) {
+             if (yPosition > pageHeight - margin) {
+               pdf.addPage();
+               yPosition = margin;
+             }
+             pdf.text(wrappedText[j], margin + 5, yPosition);
+             yPosition += lineHeight;
+           }
+         } else if (line.match(/\[\d{1,2}:\d{2}\]/)) {
+           // Timestamp lines - make them slightly smaller and italic-looking
+           pdf.setFontSize(10);
+           const wrappedText = pdf.splitTextToSize(line, maxWidth);
+           
+           for (let j = 0; j < wrappedText.length; j++) {
+             if (yPosition > pageHeight - margin) {
+               pdf.addPage();
+               yPosition = margin;
+             }
+             pdf.text(wrappedText[j], margin + 3, yPosition);
+             yPosition += lineHeight;
+           }
+           pdf.setFontSize(11); // Reset font size
+         } else if (line.startsWith('>')) {
+           // Blockquotes - slightly indented and smaller font
+           pdf.setFontSize(10);
+           const quoteText = line.replace(/^>\s*/, '');
+           const wrappedText = pdf.splitTextToSize(`"${quoteText}"`, maxWidth - 10);
+           
+           for (let j = 0; j < wrappedText.length; j++) {
+             if (yPosition > pageHeight - margin) {
+               pdf.addPage();
+               yPosition = margin;
+             }
+             pdf.text(wrappedText[j], margin + 10, yPosition);
+             yPosition += lineHeight;
+           }
+           pdf.setFontSize(11); // Reset font size
+        } else {
+          // Regular paragraphs
+          const wrappedText = pdf.splitTextToSize(line, maxWidth);
+          
+          for (let j = 0; j < wrappedText.length; j++) {
+            if (yPosition > pageHeight - margin) {
+              pdf.addPage();
+              yPosition = margin;
+            }
+            pdf.text(wrappedText[j], margin, yPosition);
+            yPosition += lineHeight;
+          }
+          yPosition += lineHeight * 0.3; // Small gap after paragraphs
+        }
         
-        if (remainingHeight > 0) {
+        // Check if we need a new page
+        if (yPosition > pageHeight - margin) {
           pdf.addPage();
+          yPosition = margin;
         }
       }
       
       // Generate filename with timestamp
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = `video-notes-${timestamp}.pdf`;
+      const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `video-notes-${fileTimestamp}.pdf`;
       
       pdf.save(filename);
-    } catch (err: any) {
-      setError(err.message || "Failed to download PDF");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to download PDF";
+      setError(errorMessage);
     } finally {
       setIsDownloadingPDF(false);
     }
@@ -286,8 +407,9 @@ export default function Home() {
       await navigator.clipboard.writeText(markdownNotes);
       // Brief visual feedback that copy succeeded
       setTimeout(() => setIsCopying(false), 1000);
-    } catch (err: any) {
-      setError(err.message || "Failed to copy markdown");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to copy markdown";
+      setError(errorMessage);
       setIsCopying(false);
     }
   };

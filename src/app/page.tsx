@@ -57,6 +57,13 @@ export default function Home() {
   const [isCopying, setIsCopying] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Calculate reading statistics
+  const getReadingStats = (text: string) => {
+    const wordCount = text.trim().split(/\s+/).length;
+    const readingTime = Math.ceil(wordCount / 200); // Average reading speed: 200 words per minute
+    return { wordCount, readingTime };
+  };
+
   // Check system preference for dark mode on load
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -651,31 +658,81 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="w-full space-y-6">
+                        <div className="w-full space-y-6">
+              {/* Header Section */}
               <div className={classNames(
-                "rounded-2xl shadow-xl border p-4 sm:p-8",
+                "rounded-2xl shadow-xl border p-6 sm:p-8",
                 darkMode 
-                  ? "border-gray-700 bg-[#18181b]" 
-                  : "border-gray-200 bg-white"
+                  ? "border-gray-700 bg-gradient-to-r from-[#18181b] to-[#1f1f23]" 
+                  : "border-gray-200 bg-gradient-to-r from-white to-gray-50"
               )}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                  <h2 className={classNames(
-                    "text-2xl font-bold",
-                    darkMode ? "text-gray-100" : "text-gray-800"
-                  )}>
-                    Video Analysis Results
-                  </h2>
-                  <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                  <div className="flex items-center space-x-4">
+                    <div className={classNames(
+                      "p-3 rounded-xl",
+                      darkMode ? "bg-blue-600/20" : "bg-blue-100"
+                    )}>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className={classNames(
+                          "w-6 h-6",
+                          darkMode ? "text-blue-400" : "text-blue-600"
+                        )}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className={classNames(
+                        "text-2xl font-bold mb-1",
+                        darkMode ? "text-gray-100" : "text-gray-800"
+                      )}>
+                        Video Analysis Results
+                      </h2>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <p className={classNames(
+                          "text-sm",
+                          darkMode ? "text-gray-400" : "text-gray-600"
+                        )}>
+                          AI-generated notes from your video content
+                        </p>
+                        {markdownNotes && (
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className={classNames(
+                              "px-2 py-1 rounded-full",
+                              darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
+                            )}>
+                              {getReadingStats(markdownNotes).wordCount} words
+                            </span>
+                            <span className={classNames(
+                              "px-2 py-1 rounded-full",
+                              darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
+                            )}>
+                              {getReadingStats(markdownNotes).readingTime} min read
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={downloadPDF}
                       disabled={isDownloadingPDF}
                       className={classNames(
-                        "inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors",
+                        "inline-flex items-center px-5 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl",
                         isDownloadingPDF
                           ? "bg-gray-400 cursor-not-allowed text-white"
-                          : darkMode 
-                          ? "bg-green-600 hover:bg-green-700 text-white" 
-                          : "bg-green-600 hover:bg-green-700 text-white"
+                          : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
                       )}
                     >
                       {isDownloadingPDF ? (
@@ -696,18 +753,19 @@ export default function Home() {
                           />
                         </svg>
                       )}
-                      {isDownloadingPDF ? 'Generating PDF...' : 'Download PDF'}
+                      {isDownloadingPDF ? 'Generating...' : 'Download PDF'}
                     </button>
+                    
                     <button
                       onClick={copyMarkdown}
                       disabled={isCopying}
                       className={classNames(
-                        "inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors",
+                        "inline-flex items-center px-5 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl",
                         isCopying
                           ? "bg-gray-400 cursor-not-allowed text-white"
                           : darkMode 
-                          ? "bg-blue-600 hover:bg-blue-700 text-white border border-blue-600" 
-                          : "bg-white hover:bg-gray-50 text-blue-600 border border-blue-600"
+                          ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-105" 
+                          : "bg-white hover:bg-gray-50 text-blue-600 border-2 border-blue-600 hover:scale-105"
                       )}
                     >
                       {isCopying ? (
@@ -743,6 +801,7 @@ export default function Home() {
                       )}
                       {isCopying ? 'Copied!' : 'Copy Markdown'}
                     </button>
+                    
                     <button
                       onClick={() => {
                         setMarkdownNotes(null);
@@ -751,23 +810,83 @@ export default function Home() {
                         setUploadId(null);
                       }}
                       className={classNames(
-                        "hover:underline font-medium",
-                        darkMode ? "text-blue-400" : "text-blue-600"
+                        "inline-flex items-center px-5 py-2.5 rounded-xl font-medium transition-all duration-200 hover:scale-105",
+                        darkMode 
+                          ? "text-gray-300 hover:text-white hover:bg-gray-700" 
+                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
                       )}
                     >
-                      Analyze Another Video
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 mr-2"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4.5v15m7.5-7.5h-15"
+                        />
+                      </svg>
+                      New Analysis
                     </button>
                   </div>
                 </div>
-                
-                <div className={classNames(
-                  "prose max-w-none",
-                  darkMode ? "prose-invert prose-blue" : "prose-blue"
-                )}>
-                  <div dangerouslySetInnerHTML={{ __html: marked.parse(markdownNotes || '') as string }} />
-                </div>
-                              </div>
               </div>
+
+              {/* Notes Content */}
+              <div className={classNames(
+                "rounded-2xl shadow-xl border overflow-hidden",
+                darkMode 
+                  ? "border-gray-700 bg-[#18181b]" 
+                  : "border-gray-200 bg-white"
+              )}>
+                {/* Content Header */}
+                <div className={classNames(
+                  "px-6 py-4 border-b",
+                  darkMode 
+                    ? "bg-gray-800/50 border-gray-700" 
+                    : "bg-gray-50/50 border-gray-200"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={classNames(
+                        "w-2 h-2 rounded-full",
+                        darkMode ? "bg-green-400" : "bg-green-500"
+                      )}></div>
+                      <span className={classNames(
+                        "text-sm font-medium",
+                        darkMode ? "text-gray-300" : "text-gray-700"
+                      )}>
+                        Generated Notes
+                      </span>
+                    </div>
+                    <span className={classNames(
+                      "text-xs px-2 py-1 rounded-full",
+                      darkMode 
+                        ? "bg-blue-900/50 text-blue-300" 
+                        : "bg-blue-100 text-blue-700"
+                    )}>
+                      Ready to export
+                    </span>
+                  </div>
+                </div>
+
+                {/* Enhanced Notes Display */}
+                <div className="p-8">
+                  <div className={classNames(
+                    "prose prose-lg max-w-none animate-fade-in",
+                    darkMode 
+                      ? "prose-invert" 
+                      : ""
+                  )}>
+                    <div dangerouslySetInnerHTML={{ __html: marked.parse(markdownNotes || '') as string }} />
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </main>

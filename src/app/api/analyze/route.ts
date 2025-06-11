@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadDir = path.join(process.cwd(), 'tmp', 'uploads');
+    const uploadDir = path.join(process.cwd(), 'uploads');
     localVideoPath = path.join(uploadDir, path.basename(filePath));
 
     if (!fs.existsSync(localVideoPath)) {
@@ -109,7 +109,7 @@ Deliver a cohesive overview of the full video.
 
 Explain key ideas, developments, or workflows clearly.
 
-No filler or generalizations. Avoid phrases like “The video says” or “The speaker explains”.
+No filler or generalizations. Avoid phrases like "The video says" or "The speaker explains".
 
 ## Key Topics and Concepts
 Bullet points with clear, concise phrasing.
@@ -182,7 +182,7 @@ Do not include any introductory lines or unnecessary commentary.
 
     return NextResponse.json({
       success: true,
-      markdown,
+      notes: markdown,
       uploadId,
     });
 

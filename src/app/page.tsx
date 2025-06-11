@@ -1,33 +1,23 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import { marked } from "marked";
-import jsPDF from "jspdf";
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  CloudArrowUpIcon, 
+  DocumentTextIcon, 
+  PlayIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ArrowDownTrayIcon,
+  ClipboardDocumentIcon,
+  SunIcon,
+  MoonIcon,
+  SparklesIcon,
+  EyeIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline';
 
-// Configure marked to return string synchronously
-marked.setOptions({
-  async: false
-});
 
-// Simple function to convert markdown to clean text for PDF
-const markdownToCleanText = (markdown: string): string => {
-  return markdown
-    // Remove markdown link syntax but keep the text
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // Remove bold/italic markers but keep the text
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/__([^_]+)__/g, '$1')
-    .replace(/_([^_]+)_/g, '$1')
-    // Remove code block markers
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    // Remove horizontal rules
-    .replace(/^---+$/gm, '')
-    // Clean up extra whitespace
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-};
 
 const ACCEPTED_VIDEO_TYPES = [
   "video/mp4",
@@ -38,10 +28,6 @@ const ACCEPTED_VIDEO_TYPES = [
 ];
 const MAX_FILE_SIZE_MB = 200;
 
-function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export default function Home() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -49,7 +35,7 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [, setUploadId] = useState<string | null>(null);
+  const [uploadResponse, setUploadResponse] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [markdownNotes, setMarkdownNotes] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
@@ -115,788 +101,647 @@ export default function Home() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const validationError = validateFile(file);
-      if (validationError) {
-        setError(validationError);
-        setSelectedFile(null);
-      } else {
-        setSelectedFile(file);
-        setError(null);
-        setUploadSuccess(false);
-        setMarkdownNotes(null);
-      }
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files[0]) {
+      handleFileSelection(files[0]);
     }
   };
 
-  const handleClick = () => {
-    inputRef.current?.click();
+  const handleFileSelection = (file: File) => {
+    const validationError = validateFile(file);
+    if (validationError) {
+      setError(validationError);
+      setSelectedFile(null);
+    } else {
+      setSelectedFile(file);
+      setError(null);
+      setUploadSuccess(false);
+      setMarkdownNotes(null);
+    }
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) {
-      setError("Please select a file first");
-      return;
-    }
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError(null);
 
     try {
-      setIsUploading(true);
-      setUploadProgress(0);
-      setError(null);
-      setMarkdownNotes(null);
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
 
       const formData = new FormData();
-      formData.append("file", selectedFile);
+      formData.append('file', selectedFile);
 
-      // Create a mock progress simulation
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          const newProgress = prev + Math.random() * 10;
-          return newProgress > 95 ? 95 : newProgress;
-        });
-      }, 500);
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
+      const response = await fetch('/api/upload', {
+        method: 'POST',
         body: formData,
       });
 
       clearInterval(progressInterval);
+      setUploadProgress(100);
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Upload failed");
+        throw new Error(errorData.error || 'Upload failed');
       }
 
-      const data = await response.json();
-      setUploadProgress(100);
+      const result = await response.json();
+      setUploadResponse(result);
       setUploadSuccess(true);
-      setUploadId(data.file.uploadId);
-
-      // Start the analysis process using server-returned MIME type
-      await analyzeVideo(data.file.uploadId, data.file.path, data.file.type);
-
-      // Reset progress after a delay
+      
+      // Start analysis
       setTimeout(() => {
-        setUploadProgress(0);
-      }, 2000);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Upload failed";
-      setError(errorMessage);
+        setIsAnalyzing(true);
+        analyzeVideo(result);
+      }, 500);
+
+    } catch (err) {
+      setError('Upload failed. Please try again.');
+      setUploadProgress(0);
+    } finally {
       setIsUploading(false);
     }
   };
 
-  const analyzeVideo = async (uploadId: string, filePath: string, originalMimeType: string) => {
-    if (!selectedFile) {
-      setError("File information is missing for analysis.");
-      setIsAnalyzing(false);
-      setIsUploading(false);
-      return;
-    }
+  const analyzeVideo = async (uploadData: any) => {
     try {
-      setIsAnalyzing(true);
-      
-      const response = await fetch("/api/analyze", {
-        method: "POST",
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          uploadId,
-          filePath,
-          mimeType: originalMimeType,
+        body: JSON.stringify({ 
+          uploadId: uploadData.uploadId,
+          filePath: uploadData.filePath,
+          mimeType: uploadData.mimeType
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Analysis failed");
+        throw new Error(errorData.error || 'Analysis failed');
       }
 
-      const data = await response.json();
-      setMarkdownNotes(data.markdown);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Analysis failed";
-      setError(errorMessage);
+      const result = await response.json();
+      setMarkdownNotes(result.notes);
+    } catch (err) {
+      setError(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsAnalyzing(false);
-      setIsUploading(false);
     }
   };
 
   const downloadPDF = async () => {
-    if (!markdownNotes) {
-      setError("No notes to download");
-      return;
-    }
-
-    if (isDownloadingPDF) {
-      return; // Prevent multiple downloads
-    }
-
+    if (!markdownNotes) return;
+    
     setIsDownloadingPDF(true);
-    setError(null);
-
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      // Set up PDF styling
-      const pageWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const margin = 20; // 20mm margins
-      const lineHeight = 6; // Line height in mm
-      const maxWidth = pageWidth - (2 * margin); // Text width
-      
-      let yPosition = margin; // Current vertical position
-      
-      // Add title
-      pdf.setFontSize(18);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Video Analysis Notes', margin, yPosition);
-      yPosition += lineHeight * 2;
-      
-      // Add timestamp
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      const timestamp = new Date().toLocaleString();
-      pdf.text(`Generated on: ${timestamp}`, margin, yPosition);
-      yPosition += lineHeight * 2;
-      
-      // Draw a line separator
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += lineHeight;
-      
-      // Convert markdown to plain text while preserving structure
-      const cleanText = markdownToCleanText(markdownNotes);
-      
-      // Process the text line by line
-      const lines = cleanText.split('\n');
-      pdf.setFontSize(11);
-      pdf.setFont('helvetica', 'normal');
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        // Skip empty lines but add spacing
-        if (line === '') {
-          yPosition += lineHeight * 0.5;
-          continue;
-        }
-        
-        // Handle different content types based on markdown patterns
-        if (line.startsWith('##')) {
-          // Section headers
-          yPosition += lineHeight * 0.5;
-          pdf.setFontSize(14);
-          pdf.setFont('helvetica', 'bold');
-          const headerText = line.replace(/^#+\s*/, '');
-          pdf.text(headerText, margin, yPosition);
-          yPosition += lineHeight * 1.5;
-          pdf.setFontSize(11);
-          pdf.setFont('helvetica', 'normal');
-        } else if (line.startsWith('#')) {
-          // Main headers
-          yPosition += lineHeight;
-          pdf.setFontSize(16);
-          pdf.setFont('helvetica', 'bold');
-          const headerText = line.replace(/^#+\s*/, '');
-          pdf.text(headerText, margin, yPosition);
-          yPosition += lineHeight * 1.5;
-          pdf.setFontSize(11);
-          pdf.setFont('helvetica', 'normal');
-                 } else if (line.startsWith('- ') || line.startsWith('* ')) {
-           // Bullet points
-           const bulletText = line.replace(/^[-*]\s*/, '');
-           const wrappedText = pdf.splitTextToSize(`• ${bulletText}`, maxWidth - 5);
-           
-           for (let j = 0; j < wrappedText.length; j++) {
-             if (yPosition > pageHeight - margin) {
-               pdf.addPage();
-               yPosition = margin;
-             }
-             pdf.text(wrappedText[j], margin + 5, yPosition);
-             yPosition += lineHeight;
-           }
-         } else if (/^\d+\./.test(line)) {
-           // Numbered lists
-           const wrappedText = pdf.splitTextToSize(line, maxWidth - 5);
-           
-           for (let j = 0; j < wrappedText.length; j++) {
-             if (yPosition > pageHeight - margin) {
-               pdf.addPage();
-               yPosition = margin;
-             }
-             pdf.text(wrappedText[j], margin + 5, yPosition);
-             yPosition += lineHeight;
-           }
-         } else if (line.match(/\[\d{1,2}:\d{2}\]/)) {
-           // Timestamp lines - make them slightly smaller and italic-looking
-           pdf.setFontSize(10);
-           const wrappedText = pdf.splitTextToSize(line, maxWidth);
-           
-           for (let j = 0; j < wrappedText.length; j++) {
-             if (yPosition > pageHeight - margin) {
-               pdf.addPage();
-               yPosition = margin;
-             }
-             pdf.text(wrappedText[j], margin + 3, yPosition);
-             yPosition += lineHeight;
-           }
-           pdf.setFontSize(11); // Reset font size
-         } else if (line.startsWith('>')) {
-           // Blockquotes - slightly indented and smaller font
-           pdf.setFontSize(10);
-           const quoteText = line.replace(/^>\s*/, '');
-           const wrappedText = pdf.splitTextToSize(`"${quoteText}"`, maxWidth - 10);
-           
-           for (let j = 0; j < wrappedText.length; j++) {
-             if (yPosition > pageHeight - margin) {
-               pdf.addPage();
-               yPosition = margin;
-             }
-             pdf.text(wrappedText[j], margin + 10, yPosition);
-             yPosition += lineHeight;
-           }
-           pdf.setFontSize(11); // Reset font size
-        } else {
-          // Regular paragraphs
-          const wrappedText = pdf.splitTextToSize(line, maxWidth);
-          
-          for (let j = 0; j < wrappedText.length; j++) {
-            if (yPosition > pageHeight - margin) {
-              pdf.addPage();
-              yPosition = margin;
-            }
-            pdf.text(wrappedText[j], margin, yPosition);
-            yPosition += lineHeight;
-          }
-          yPosition += lineHeight * 0.3; // Small gap after paragraphs
-        }
-        
-        // Check if we need a new page
-        if (yPosition > pageHeight - margin) {
-          pdf.addPage();
-          yPosition = margin;
-        }
-      }
-      
-      // Generate filename with timestamp
-      const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = `video-notes-${fileTimestamp}.pdf`;
-      
-      pdf.save(filename);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to download PDF";
-      setError(errorMessage);
+      const response = await fetch('/api/export-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ markdown: markdownNotes }),
+      });
+
+      if (!response.ok) throw new Error('PDF generation failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'video-analysis.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError('PDF download failed');
     } finally {
       setIsDownloadingPDF(false);
     }
   };
 
-  const copyMarkdown = async () => {
-    if (!markdownNotes) {
-      setError("No notes to copy");
-      return;
-    }
-
-    if (isCopying) {
-      return; // Prevent multiple operations
-    }
-
+  const copyToClipboard = async () => {
+    if (!markdownNotes) return;
+    
     setIsCopying(true);
-    setError(null);
-
     try {
       await navigator.clipboard.writeText(markdownNotes);
-      // Brief visual feedback that copy succeeded
-      setTimeout(() => setIsCopying(false), 1000);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to copy markdown";
-      setError(errorMessage);
+      setTimeout(() => setIsCopying(false), 2000);
+    } catch (err) {
+      setError('Failed to copy to clipboard');
       setIsCopying(false);
     }
   };
 
+  const resetUpload = () => {
+    setSelectedFile(null);
+    setUploadSuccess(false);
+    setUploadProgress(0);
+    setMarkdownNotes(null);
+    setError(null);
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
+  };
+
+  const stats = markdownNotes ? getReadingStats(markdownNotes) : null;
+
   return (
-    <div className={classNames(
-      "min-h-screen flex flex-col transition-colors duration-500",
+    <div className={`min-h-screen transition-all duration-500 ${
       darkMode 
-        ? "bg-gradient-to-br from-[#18181b] to-[#23272f] text-white" 
-        : "bg-gradient-to-br from-[#f8fafc] to-[#e0e7ef] text-gray-900"
-    )}>
-      <header className="w-full p-4 flex justify-end">
-        <button
-          onClick={toggleDarkMode}
-          aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-          className={classNames(
-            "p-2 rounded-full transition-colors",
-            darkMode 
-              ? "bg-gray-700 hover:bg-gray-600 text-yellow-300" 
-              : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-          )}
-        >
-          {darkMode ? (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-            </svg>
-          )}
-        </button>
-      </header>
-
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
-          <h1 className={classNames(
-            "text-4xl sm:text-5xl font-extrabold tracking-tight mb-2 drop-shadow-lg text-center",
-            darkMode ? "text-white" : "text-gray-900"
-          )}>
-            Videnote
-          </h1>
-          <p className={classNames(
-            "text-lg sm:text-xl mb-8 font-medium text-center max-w-md",
-            darkMode ? "text-gray-300" : "text-gray-600"
-          )}>
-            Instantly turn your videos into beautiful, structured markdown notes with AI.
-          </p>
-          
-          {!markdownNotes ? (
-            <div
-              className={classNames(
-                "w-full rounded-2xl shadow-xl border p-4 sm:p-8 flex flex-col items-center transition-colors duration-300",
-                darkMode 
-                  ? "border-gray-700 bg-[#18181b]" 
-                  : "border-gray-200 bg-white",
-                dragActive 
-                  ? darkMode ? "ring-2 ring-blue-400 bg-[#23272f]" : "ring-2 ring-blue-400 bg-blue-50" 
-                  : "",
-                !selectedFile ? "cursor-pointer hover:shadow-2xl" : ""
-              )}
-              onDragEnter={selectedFile ? undefined : handleDrag}
-              onDragOver={selectedFile ? undefined : handleDrag}
-              onDragLeave={selectedFile ? undefined : handleDrag}
-              onDrop={selectedFile ? undefined : handleDrop}
-              onClick={selectedFile ? undefined : handleClick}
-              role={!selectedFile ? "button" : "region"}
-              aria-label={!selectedFile ? "Click or drag to upload video" : "Video upload area"}
-              tabIndex={!selectedFile ? 0 : undefined}
+        ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' 
+        : 'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100'
+    }`}>
+      {/* Header */}
+      <motion.header 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <motion.div 
+              className="flex items-center space-x-3"
+              whileHover={{ scale: 1.05 }}
             >
-              <input
-                type="file"
-                accept="video/mp4,video/quicktime,video/mov,video/x-m4v,video/webm"
-                className="hidden"
-                ref={inputRef}
-                onChange={handleChange}
-                aria-label="Upload video file"
-              />
-              
-              {!selectedFile ? (
-                <>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="w-14 h-14 text-blue-500 mb-4"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5M4.5 10.5h15m-1.5 0v7.125A2.625 2.625 0 0115.375 20.25H8.625A2.625 2.625 0 016 17.625V10.5"
-                    />
-                  </svg>
-                  <p className={classNames(
-                    "text-lg font-semibold mb-1",
-                    darkMode ? "text-gray-100" : "text-gray-800"
-                  )}>
-                    Drag & drop your video here, or{" "}
-                    <span className={classNames(
-                      "underline",
-                      darkMode ? "text-blue-400" : "text-blue-600"
-                    )}>browse</span>
-                  </p>
-                  <p className={classNames(
-                    "text-sm mb-4",
-                    darkMode ? "text-gray-400" : "text-gray-500"
-                  )}>
-                    Supported: mp4, mov, webm. Max size: {MAX_FILE_SIZE_MB}MB.
-                  </p>
-                </>
-              ) : (
-                <div className="w-full">
-                  <div className="flex items-center mb-4">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-8 h-8 text-blue-500 mr-3 flex-shrink-0"
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75H5.625m0-12.75h12.75m-12.75 0v1.5c0 .621.504 1.125 1.125 1.125M19.125 4.5h-1.5a1.125 1.125 0 00-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 016 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M19.125 12h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h1.5m14.25 0h1.5"
-                      />
-                    </svg>
-                    <div className="flex-1 min-w-0">
-                      <p className={classNames(
-                        "text-md font-medium truncate",
-                        darkMode ? "text-gray-100" : "text-gray-800"
-                      )}>
-                        {selectedFile.name}
-                      </p>
-                      <p className={classNames(
-                        "text-xs",
-                        darkMode ? "text-gray-400" : "text-gray-500"
-                      )}>
-                        {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedFile(null);
-                        setUploadSuccess(false);
-                        setUploadId(null);
-                        setMarkdownNotes(null);
-                      }}
-                      className={classNames(
-                        "flex-shrink-0",
-                        darkMode 
-                          ? "text-gray-400 hover:text-gray-200" 
-                          : "text-gray-500 hover:text-gray-700"
-                      )}
-                      aria-label="Remove selected file"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-5 h-5"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {uploadProgress > 0 && (
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100}>
-                      <div
-                        className={`h-2 rounded-full ${
-                          uploadSuccess
-                            ? "bg-green-500"
-                            : "bg-blue-500"
-                        }`}
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      onClick={handleUpload}
-                      disabled={isUploading || uploadSuccess || isAnalyzing}
-                      className={classNames(
-                        "px-4 py-2 rounded-lg text-white font-medium transition-colors",
-                        isUploading || isAnalyzing
-                          ? "bg-blue-400 cursor-not-allowed"
-                          : uploadSuccess
-                          ? "bg-green-500 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700"
-                      )}
-                      aria-busy={isUploading || isAnalyzing}
-                    >
-                      {isUploading
-                        ? "Uploading..."
-                        : isAnalyzing
-                        ? "Analyzing Video..."
-                        : uploadSuccess
-                        ? "Uploaded Successfully"
-                        : "Upload Video"}
-                    </button>
-                  </div>
-                </div>
-              )}
-              
-              {error && (
-                <div className="mt-4 text-red-600 dark:text-red-400 font-semibold text-center" role="alert">
-                  {error}
-                </div>
-              )}
-              
-              {uploadSuccess && !isAnalyzing && !markdownNotes && (
-                <div className="mt-4 text-green-600 dark:text-green-400 font-semibold text-center" aria-live="polite">
-                  Video uploaded successfully! Analyzing content...
-                </div>
-              )}
-              
-              {isAnalyzing && (
-                <div className="mt-4 flex items-center justify-center" aria-live="polite">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mr-2" aria-hidden="true"></div>
-                  <span className={classNames(
-                    darkMode ? "text-blue-400" : "text-blue-600"
-                  )}>Analyzing video with AI...</span>
-                </div>
-              )}
-            </div>
-          ) : (
-                        <div className="w-full space-y-6">
-              {/* Header Section */}
-              <div className={classNames(
-                "rounded-2xl shadow-xl border p-6 sm:p-8",
+              <div className={`p-2 rounded-xl ${
+                darkMode ? 'bg-purple-600' : 'bg-blue-600'
+              } shadow-lg`}>
+                <SparklesIcon className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className={`text-2xl font-bold ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  HolMusk AI
+                </h1>
+                <p className={`text-sm ${
+                  darkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Intelligent Video Analysis
+                </p>
+              </div>
+            </motion.div>
+            
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleDarkMode}
+              className={`p-3 rounded-xl transition-all ${
                 darkMode 
-                  ? "border-gray-700 bg-gradient-to-r from-[#18181b] to-[#1f1f23]" 
-                  : "border-gray-200 bg-gradient-to-r from-white to-gray-50"
-              )}>
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                  <div className="flex items-center space-x-4">
-                    <div className={classNames(
-                      "p-3 rounded-xl",
-                      darkMode ? "bg-blue-600/20" : "bg-blue-100"
-                    )}>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className={classNames(
-                          "w-6 h-6",
-                          darkMode ? "text-blue-400" : "text-blue-600"
-                        )}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className={classNames(
-                        "text-2xl font-bold mb-1",
-                        darkMode ? "text-gray-100" : "text-gray-800"
-                      )}>
-                        Video Analysis Results
-                      </h2>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <p className={classNames(
-                          "text-sm",
-                          darkMode ? "text-gray-400" : "text-gray-600"
-                        )}>
-                          AI-generated notes from your video content
+                  ? 'bg-slate-800 text-yellow-400 hover:bg-slate-700' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50 shadow-lg'
+              }`}
+            >
+              {darkMode ? (
+                <SunIcon className="h-5 w-5" />
+              ) : (
+                <MoonIcon className="h-5 w-5" />
+              )}
+            </motion.button>
+          </div>
+        </div>
+      </motion.header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="grid lg:grid-cols-2 gap-8">
+          
+          {/* Upload Section */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className={`rounded-3xl p-8 shadow-2xl backdrop-blur-sm ${
+              darkMode 
+                ? 'bg-slate-800/50 border border-slate-700' 
+                : 'bg-white/70 border border-white'
+            }`}>
+              
+              {/* Hero Section */}
+              <div className="text-center mb-8">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.3, type: "spring" }}
+                  className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4 ${
+                    darkMode ? 'bg-purple-600' : 'bg-blue-600'
+                  }`}
+                >
+                  <EyeIcon className="h-8 w-8 text-white" />
+                </motion.div>
+                
+                <h2 className={`text-3xl font-bold mb-2 ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Transform Videos into Insights
+                </h2>
+                <p className={`text-lg ${
+                  darkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Upload your video and get AI-powered analysis with detailed markdown notes
+                </p>
+              </div>
+
+              {/* Upload Area */}
+              <AnimatePresence mode="wait">
+                {!selectedFile ? (
+                  <motion.div
+                    key="upload"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    className={`relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 ${
+                      dragActive
+                        ? darkMode
+                          ? 'border-purple-400 bg-purple-900/20'
+                          : 'border-blue-400 bg-blue-50'
+                        : darkMode
+                          ? 'border-slate-600 hover:border-purple-400'
+                          : 'border-gray-300 hover:border-blue-400'
+                    }`}
+                    onClick={() => inputRef.current?.click()}
+                  >
+                    <motion.div
+                      animate={{ y: dragActive ? -5 : 0 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      <CloudArrowUpIcon className={`h-16 w-16 mx-auto mb-4 ${
+                        dragActive
+                          ? darkMode ? 'text-purple-400' : 'text-blue-500'
+                          : darkMode ? 'text-gray-400' : 'text-gray-400'
+                      }`} />
+                      
+                      <h3 className={`text-xl font-semibold mb-2 ${
+                        darkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {dragActive ? 'Drop your video here' : 'Upload your video'}
+                      </h3>
+                      
+                      <p className={`mb-4 ${
+                        darkMode ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
+                        Drag and drop or click to browse
+                      </p>
+                      
+                      <div className="flex flex-wrap justify-center gap-2 text-xs">
+                        {['MP4', 'AVI', 'MOV', 'WMV', 'WebM'].map((format) => (
+                          <span
+                            key={format}
+                            className={`px-3 py-1 rounded-full ${
+                              darkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {format}
+                          </span>
+                        ))}
+                      </div>
+                      
+                      <p className={`text-xs mt-2 ${
+                        darkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        Maximum file size: 100MB
+                      </p>
+                    </motion.div>
+                    
+                    <input
+                      ref={inputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleFileInput}
+                      className="hidden"
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="file-selected"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className={`rounded-2xl p-6 ${
+                      darkMode ? 'bg-slate-700' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-3 rounded-xl ${
+                        darkMode ? 'bg-purple-600' : 'bg-blue-600'
+                      }`}>
+                        <PlayIcon className="h-6 w-6 text-white" />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-medium truncate ${
+                          darkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {selectedFile.name}
                         </p>
-                        {markdownNotes && (
-                          <div className="flex items-center gap-4 text-xs">
-                            <span className={classNames(
-                              "px-2 py-1 rounded-full",
-                              darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
-                            )}>
-                              {getReadingStats(markdownNotes).wordCount} words
-                            </span>
-                            <span className={classNames(
-                              "px-2 py-1 rounded-full",
-                              darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
-                            )}>
-                              {getReadingStats(markdownNotes).readingTime} min read
-                            </span>
-                          </div>
-                        )}
+                        <p className={`text-sm ${
+                          darkMode ? 'text-gray-300' : 'text-gray-600'
+                        }`}>
+                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={resetUpload}
+                        className={`p-2 rounded-lg transition-colors ${
+                          darkMode 
+                            ? 'hover:bg-slate-600 text-gray-400' 
+                            : 'hover:bg-gray-200 text-gray-500'
+                        }`}
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Upload Progress */}
+              <AnimatePresence>
+                {(isUploading || uploadSuccess) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-6"
+                  >
+                    <div className={`rounded-xl p-4 ${
+                      darkMode ? 'bg-slate-700' : 'bg-gray-50'
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-sm font-medium ${
+                          darkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {isUploading ? 'Uploading...' : 'Upload Complete'}
+                        </span>
+                        <span className={`text-sm ${
+                          darkMode ? 'text-gray-300' : 'text-gray-600'
+                        }`}>
+                          {uploadProgress}%
+                        </span>
+                      </div>
+                      
+                      <div className={`w-full rounded-full h-2 ${
+                        darkMode ? 'bg-slate-600' : 'bg-gray-200'
+                      }`}>
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${uploadProgress}%` }}
+                          transition={{ duration: 0.3 }}
+                          className={`h-2 rounded-full ${
+                            uploadSuccess 
+                              ? 'bg-green-500' 
+                              : darkMode ? 'bg-purple-500' : 'bg-blue-500'
+                          }`}
+                        />
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-3">
-                    <button
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Action Buttons */}
+              <div className="mt-8 space-y-4">
+                {selectedFile && !uploadSuccess && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                    className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all shadow-lg ${
+                      isUploading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : darkMode
+                          ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/25'
+                          : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/25'
+                    }`}
+                  >
+                    {isUploading ? 'Uploading...' : 'Start Analysis'}
+                  </motion.button>
+                )}
+
+                {uploadSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex items-center justify-center space-x-2 py-4 px-6 rounded-xl ${
+                      darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-600'
+                    }`}
+                  >
+                    <CheckCircleIcon className="h-5 w-5" />
+                    <span className="font-medium">Upload Successful</span>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Error Display */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className={`mt-4 p-4 rounded-xl flex items-center space-x-2 ${
+                      darkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'
+                    }`}
+                  >
+                    <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm">{error}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+
+          {/* Results Section */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <div className={`rounded-3xl p-8 shadow-2xl backdrop-blur-sm h-full ${
+              darkMode 
+                ? 'bg-slate-800/50 border border-slate-700' 
+                : 'bg-white/70 border border-white'
+            }`}>
+              
+              <div className="flex items-center justify-between mb-6">
+                <h3 className={`text-2xl font-bold ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Analysis Results
+                </h3>
+                
+                {markdownNotes && (
+                  <div className="flex space-x-2">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={copyToClipboard}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isCopying
+                          ? 'bg-green-500 text-white'
+                          : darkMode
+                            ? 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                      }`}
+                      title="Copy to clipboard"
+                    >
+                      <ClipboardDocumentIcon className="h-5 w-5" />
+                    </motion.button>
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={downloadPDF}
                       disabled={isDownloadingPDF}
-                      className={classNames(
-                        "inline-flex items-center px-5 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl",
-                        isDownloadingPDF
-                          ? "bg-gray-400 cursor-not-allowed text-white"
-                          : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
-                      )}
+                      className={`p-2 rounded-lg transition-colors ${
+                        darkMode
+                          ? 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                      }`}
+                      title="Download PDF"
                     >
-                      {isDownloadingPDF ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={1.5}
-                          stroke="currentColor"
-                          className="w-5 h-5 mr-2"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-                          />
-                        </svg>
-                      )}
-                      {isDownloadingPDF ? 'Generating...' : 'Download PDF'}
-                    </button>
-                    
-                    <button
-                      onClick={copyMarkdown}
-                      disabled={isCopying}
-                      className={classNames(
-                        "inline-flex items-center px-5 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl",
-                        isCopying
-                          ? "bg-gray-400 cursor-not-allowed text-white"
-                          : darkMode 
-                          ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-105" 
-                          : "bg-white hover:bg-gray-50 text-blue-600 border-2 border-blue-600 hover:scale-105"
-                      )}
-                    >
-                      {isCopying ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={1.5}
-                          stroke="currentColor"
-                          className="w-5 h-5 mr-2 text-green-500"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M4.5 12.75l6 6 9-13.5"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={1.5}
-                          stroke="currentColor"
-                          className="w-5 h-5 mr-2"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-3a3.375 3.375 0 00-3.375 3.375v1.875m6.75-10.125a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm.75 12.75h-6a.75.75 0 01-.75-.75v-1.5a.75.75 0 01.75-.75h6a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75z"
-                          />
-                        </svg>
-                      )}
-                      {isCopying ? 'Copied!' : 'Copy Markdown'}
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setMarkdownNotes(null);
-                        setSelectedFile(null);
-                        setUploadSuccess(false);
-                        setUploadId(null);
-                      }}
-                      className={classNames(
-                        "inline-flex items-center px-5 py-2.5 rounded-xl font-medium transition-all duration-200 hover:scale-105",
-                        darkMode 
-                          ? "text-gray-300 hover:text-white hover:bg-gray-700" 
-                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                      )}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-5 h-5 mr-2"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 4.5v15m7.5-7.5h-15"
-                        />
-                      </svg>
-                      New Analysis
-                    </button>
+                      <ArrowDownTrayIcon className="h-5 w-5" />
+                    </motion.button>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Notes Content */}
-              <div className={classNames(
-                "rounded-2xl shadow-xl border overflow-hidden",
-                darkMode 
-                  ? "border-gray-700 bg-[#18181b]" 
-                  : "border-gray-200 bg-white"
-              )}>
-                {/* Content Header */}
-                <div className={classNames(
-                  "px-6 py-4 border-b",
-                  darkMode 
-                    ? "bg-gray-800/50 border-gray-700" 
-                    : "bg-gray-50/50 border-gray-200"
-                )}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={classNames(
-                        "w-2 h-2 rounded-full",
-                        darkMode ? "bg-green-400" : "bg-green-500"
-                      )}></div>
-                      <span className={classNames(
-                        "text-sm font-medium",
-                        darkMode ? "text-gray-300" : "text-gray-700"
-                      )}>
-                        Generated Notes
-                      </span>
+              <AnimatePresence mode="wait">
+                {isAnalyzing ? (
+                  <motion.div
+                    key="analyzing"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex flex-col items-center justify-center py-16"
+                  >
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      className={`w-16 h-16 rounded-full border-4 border-t-transparent mb-6 ${
+                        darkMode ? 'border-purple-500' : 'border-blue-500'
+                      }`}
+                    />
+                    <h4 className={`text-xl font-semibold mb-2 ${
+                      darkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      Analyzing Video
+                    </h4>
+                    <p className={`text-center ${
+                      darkMode ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      Our AI is processing your video and generating detailed insights...
+                    </p>
+                  </motion.div>
+                ) : markdownNotes ? (
+                  <motion.div
+                    key="results"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-6"
+                  >
+                    {/* Stats */}
+                    {stats && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className={`p-4 rounded-xl ${
+                          darkMode ? 'bg-slate-700' : 'bg-gray-50'
+                        }`}>
+                          <div className="flex items-center space-x-2">
+                            <DocumentTextIcon className={`h-5 w-5 ${
+                              darkMode ? 'text-purple-400' : 'text-blue-500'
+                            }`} />
+                            <span className={`text-sm font-medium ${
+                              darkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
+                              {stats.wordCount} words
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className={`p-4 rounded-xl ${
+                          darkMode ? 'bg-slate-700' : 'bg-gray-50'
+                        }`}>
+                          <div className="flex items-center space-x-2">
+                            <ClockIcon className={`h-5 w-5 ${
+                              darkMode ? 'text-purple-400' : 'text-blue-500'
+                            }`} />
+                            <span className={`text-sm font-medium ${
+                              darkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
+                              {stats.readingTime} min read
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    <div className={`rounded-xl p-6 max-h-96 overflow-y-auto ${
+                      darkMode ? 'bg-slate-700' : 'bg-gray-50'
+                    }`}>
+                      <pre className={`whitespace-pre-wrap text-sm leading-relaxed ${
+                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        {markdownNotes}
+                      </pre>
                     </div>
-                    <span className={classNames(
-                      "text-xs px-2 py-1 rounded-full",
-                      darkMode 
-                        ? "bg-blue-900/50 text-blue-300" 
-                        : "bg-blue-100 text-blue-700"
-                    )}>
-                      Ready to export
-                    </span>
-                  </div>
-                </div>
-
-                {/* Enhanced Notes Display */}
-                <div className="p-8">
-                  <div className={classNames(
-                    "prose prose-lg max-w-none animate-fade-in",
-                    darkMode 
-                      ? "prose-invert" 
-                      : ""
-                  )}>
-                    <div dangerouslySetInnerHTML={{ __html: marked.parse(markdownNotes || '') as string }} />
-                  </div>
-                </div>
-              </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex flex-col items-center justify-center py-16"
+                  >
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 ${
+                      darkMode ? 'bg-slate-700' : 'bg-gray-100'
+                    }`}>
+                      <DocumentTextIcon className={`h-8 w-8 ${
+                        darkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />
+                    </div>
+                    <h4 className={`text-xl font-semibold mb-2 ${
+                      darkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      Ready for Analysis
+                    </h4>
+                    <p className={`text-center ${
+                      darkMode ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      Upload a video to get started with AI-powered analysis
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          )}
+          </motion.div>
         </div>
       </main>
-
-      <footer className={classNames(
-        "w-full p-4 text-center text-sm",
-        darkMode ? "text-gray-400" : "text-gray-500"
-      )}>
-        <p>© {new Date().getFullYear()} Videnote. Powered by Gemini 2.5 and Next.js</p>
-      </footer>
     </div>
   );
 }

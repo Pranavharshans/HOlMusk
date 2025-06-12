@@ -15,11 +15,15 @@
     "formidable": "^3.5.4",
     "framer-motion": "^12.17.0",
     "fs-extra": "^11.3.0",
+    "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "marked": "^15.0.12",
     "next": "15.3.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

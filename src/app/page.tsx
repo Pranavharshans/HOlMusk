@@ -2,6 +2,8 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   CloudArrowUpIcon, 
   DocumentTextIcon, 
@@ -212,7 +214,10 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ markdown: markdownNotes }),
+        body: JSON.stringify({ 
+          markdown: markdownNotes,
+          title: 'Video Analysis Report'
+        }),
       });
 
       if (!response.ok) throw new Error('PDF generation failed');
@@ -221,7 +226,7 @@ export default function Home() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'video-analysis.pdf';
+      a.download = 'Video_Analysis_Report.pdf';
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -262,8 +267,8 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-all duration-500 ${
       darkMode 
-        ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' 
-        : 'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100'
+        ? 'bg-gradient-to-br from-slate-900 via-gray-900 to-slate-900' 
+        : 'bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50'
     }`}>
       {/* Header */}
       <motion.header 
@@ -278,7 +283,7 @@ export default function Home() {
               whileHover={{ scale: 1.05 }}
             >
               <div className={`p-2 rounded-xl ${
-                darkMode ? 'bg-purple-600' : 'bg-blue-600'
+                darkMode ? 'bg-slate-600' : 'bg-blue-600'
               } shadow-lg`}>
                 <SparklesIcon className="h-8 w-8 text-white" />
               </div>
@@ -339,7 +344,7 @@ export default function Home() {
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.3, type: "spring" }}
                   className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4 ${
-                    darkMode ? 'bg-purple-600' : 'bg-blue-600'
+                    darkMode ? 'bg-slate-600' : 'bg-blue-600'
                   }`}
                 >
                   <EyeIcon className="h-8 w-8 text-white" />
@@ -372,10 +377,10 @@ export default function Home() {
                     className={`relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 ${
                       dragActive
                         ? darkMode
-                          ? 'border-purple-400 bg-purple-900/20'
+                          ? 'border-slate-400 bg-slate-800/20'
                           : 'border-blue-400 bg-blue-50'
                         : darkMode
-                          ? 'border-slate-600 hover:border-purple-400'
+                          ? 'border-slate-600 hover:border-slate-400'
                           : 'border-gray-300 hover:border-blue-400'
                     }`}
                     onClick={() => inputRef.current?.click()}
@@ -386,7 +391,7 @@ export default function Home() {
                     >
                       <CloudArrowUpIcon className={`h-16 w-16 mx-auto mb-4 ${
                         dragActive
-                          ? darkMode ? 'text-purple-400' : 'text-blue-500'
+                          ? darkMode ? 'text-slate-400' : 'text-blue-500'
                           : darkMode ? 'text-gray-400' : 'text-gray-400'
                       }`} />
                       
@@ -442,7 +447,7 @@ export default function Home() {
                   >
                     <div className="flex items-center space-x-4">
                       <div className={`p-3 rounded-xl ${
-                        darkMode ? 'bg-purple-600' : 'bg-blue-600'
+                        darkMode ? 'bg-slate-600' : 'bg-blue-600'
                       }`}>
                         <PlayIcon className="h-6 w-6 text-white" />
                       </div>
@@ -512,7 +517,7 @@ export default function Home() {
                           className={`h-2 rounded-full ${
                             uploadSuccess 
                               ? 'bg-green-500' 
-                              : darkMode ? 'bg-purple-500' : 'bg-blue-500'
+                              : darkMode ? 'bg-slate-500' : 'bg-blue-500'
                           }`}
                         />
                       </div>
@@ -535,7 +540,7 @@ export default function Home() {
                       isUploading
                         ? 'bg-gray-400 cursor-not-allowed'
                         : darkMode
-                          ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/25'
+                          ? 'bg-slate-600 hover:bg-slate-700 shadow-slate-500/25'
                           : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/25'
                     }`}
                   >
@@ -644,7 +649,7 @@ export default function Home() {
                       animate={{ rotate: 360 }}
                       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                       className={`w-16 h-16 rounded-full border-4 border-t-transparent mb-6 ${
-                        darkMode ? 'border-purple-500' : 'border-blue-500'
+                        darkMode ? 'border-slate-500' : 'border-blue-500'
                       }`}
                     />
                     <h4 className={`text-xl font-semibold mb-2 ${
@@ -673,7 +678,7 @@ export default function Home() {
                         }`}>
                           <div className="flex items-center space-x-2">
                             <DocumentTextIcon className={`h-5 w-5 ${
-                              darkMode ? 'text-purple-400' : 'text-blue-500'
+                              darkMode ? 'text-slate-400' : 'text-blue-500'
                             }`} />
                             <span className={`text-sm font-medium ${
                               darkMode ? 'text-white' : 'text-gray-900'
@@ -688,7 +693,7 @@ export default function Home() {
                         }`}>
                           <div className="flex items-center space-x-2">
                             <ClockIcon className={`h-5 w-5 ${
-                              darkMode ? 'text-purple-400' : 'text-blue-500'
+                              darkMode ? 'text-slate-400' : 'text-blue-500'
                             }`} />
                             <span className={`text-sm font-medium ${
                               darkMode ? 'text-white' : 'text-gray-900'
@@ -704,11 +709,15 @@ export default function Home() {
                     <div className={`rounded-xl p-6 max-h-96 overflow-y-auto ${
                       darkMode ? 'bg-slate-700' : 'bg-gray-50'
                     }`}>
-                      <pre className={`whitespace-pre-wrap text-sm leading-relaxed ${
-                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                      <div className={`prose prose-sm max-w-none ${
+                        darkMode 
+                          ? 'prose-invert prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-code:text-blue-300 prose-blockquote:text-gray-300' 
+                          : 'prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-code:text-blue-600 prose-blockquote:text-gray-600'
                       }`}>
-                        {markdownNotes}
-                      </pre>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {markdownNotes}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </motion.div>
                 ) : (

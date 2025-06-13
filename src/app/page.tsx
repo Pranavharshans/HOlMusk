@@ -265,7 +265,7 @@ export default function Home() {
   const stats = markdownNotes ? getReadingStats(markdownNotes) : null;
 
   return (
-    <div className={`min-h-screen transition-all duration-500 ${
+    <div className={`h-screen transition-all duration-500 flex flex-col overflow-hidden ${
       darkMode 
         ? 'bg-gradient-to-br from-slate-900 via-gray-900 to-slate-900' 
         : 'bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50'
@@ -277,30 +277,7 @@ export default function Home() {
         className="relative z-10"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <motion.div 
-              className="flex items-center space-x-3"
-              whileHover={{ scale: 1.05 }}
-            >
-              <div className={`p-2 rounded-xl ${
-                darkMode ? 'bg-slate-600' : 'bg-blue-600'
-              } shadow-lg`}>
-                <SparklesIcon className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <h1 className={`text-2xl font-bold ${
-                  darkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  HolMusk AI
-                </h1>
-                <p className={`text-sm ${
-                  darkMode ? 'text-gray-300' : 'text-gray-600'
-                }`}>
-                  Intelligent Video Analysis
-                </p>
-              </div>
-            </motion.div>
-            
+          <div className="flex justify-end items-center py-6">
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -322,14 +299,15 @@ export default function Home() {
       </motion.header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="grid lg:grid-cols-2 gap-8">
+      <main className="w-full px-4 sm:px-6 lg:px-8 pb-12 flex-1 overflow-hidden">
+        <div className="grid lg:grid-cols-5 gap-8 h-full">
           
           {/* Upload Section */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
+            className="lg:col-span-2"
           >
             <div className={`rounded-3xl p-8 shadow-2xl backdrop-blur-sm ${
               darkMode 
@@ -586,8 +564,9 @@ export default function Home() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 }}
+            className="lg:col-span-3 flex flex-col h-full"
           >
-            <div className={`rounded-3xl p-8 shadow-2xl backdrop-blur-sm h-full ${
+            <div className={`rounded-3xl p-8 shadow-2xl backdrop-blur-sm flex-1 flex flex-col overflow-hidden ${
               darkMode 
                 ? 'bg-slate-800/50 border border-slate-700' 
                 : 'bg-white/70 border border-white'
@@ -597,7 +576,7 @@ export default function Home() {
                 <h3 className={`text-2xl font-bold ${
                   darkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  Analysis Results
+                  Notes
                 </h3>
                 
                 {markdownNotes && (
@@ -668,11 +647,11 @@ export default function Home() {
                     key="results"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="space-y-6"
+                    className="space-y-6 flex flex-col flex-1 overflow-hidden"
                   >
                     {/* Stats */}
                     {stats && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-4 flex-shrink-0">
                         <div className={`p-4 rounded-xl ${
                           darkMode ? 'bg-slate-700' : 'bg-gray-50'
                         }`}>
@@ -706,17 +685,19 @@ export default function Home() {
                     )}
 
                     {/* Notes */}
-                    <div className={`rounded-xl p-6 max-h-96 overflow-y-auto ${
+                    <div className={`rounded-xl flex-1 overflow-hidden ${
                       darkMode ? 'bg-slate-700' : 'bg-gray-50'
                     }`}>
-                      <div className={`prose prose-sm max-w-none ${
-                        darkMode 
-                          ? 'prose-invert prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-code:text-blue-300 prose-blockquote:text-gray-300' 
-                          : 'prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-code:text-blue-600 prose-blockquote:text-gray-600'
-                      }`}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {markdownNotes}
-                        </ReactMarkdown>
+                      <div className={`h-full overflow-y-auto p-6`}>
+                        <div className={`prose prose-sm max-w-none ${
+                          darkMode 
+                            ? 'prose-invert prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-code:text-blue-300 prose-blockquote:text-gray-300' 
+                            : 'prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-code:text-blue-600 prose-blockquote:text-gray-600'
+                        }`}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {markdownNotes}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                     </div>
                   </motion.div>

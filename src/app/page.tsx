@@ -265,7 +265,7 @@ export default function Home() {
   const stats = markdownNotes ? getReadingStats(markdownNotes) : null;
 
   return (
-    <div className={`h-screen transition-all duration-500 flex flex-col overflow-hidden ${
+    <div className={`min-h-screen transition-all duration-500 flex flex-col overflow-y-auto ${
       darkMode 
         ? 'bg-gradient-to-br from-slate-900 via-gray-900 to-slate-900' 
         : 'bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50'
@@ -299,7 +299,7 @@ export default function Home() {
       </motion.header>
 
       {/* Main Content */}
-      <main className="w-full px-4 sm:px-6 lg:px-8 pb-12 flex-1 overflow-hidden">
+      <main className="w-full px-4 sm:px-6 lg:px-8 pb-12 flex-1">
         <div className="grid lg:grid-cols-5 gap-8 h-full">
           
           {/* Upload Section */}
@@ -564,15 +564,15 @@ export default function Home() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 }}
-            className="lg:col-span-3 flex flex-col h-full"
+            className="lg:col-span-3 flex flex-col min-h-0"
           >
-            <div className={`rounded-3xl p-8 shadow-2xl backdrop-blur-sm flex-1 flex flex-col overflow-hidden ${
+            <div className={`rounded-3xl p-8 shadow-2xl backdrop-blur-sm flex-1 flex flex-col ${
               darkMode 
                 ? 'bg-slate-800/50 border border-slate-700' 
                 : 'bg-white/70 border border-white'
             }`}>
               
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <h3 className={`text-2xl font-bold ${
                   darkMode ? 'text-white' : 'text-gray-900'
                 }`}>
@@ -647,7 +647,8 @@ export default function Home() {
                     key="results"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="space-y-6 flex flex-col flex-1 overflow-hidden"
+                    className="space-y-6 flex flex-col flex-1"
+                    style={{ minHeight: 0 }}
                   >
                     {/* Stats */}
                     {stats && (
@@ -685,10 +686,10 @@ export default function Home() {
                     )}
 
                     {/* Notes */}
-                    <div className={`rounded-xl flex-1 overflow-hidden ${
+                    <div className={`rounded-xl flex-1 flex flex-col min-h-0 ${
                       darkMode ? 'bg-slate-700' : 'bg-gray-50'
                     }`}>
-                      <div className={`h-full overflow-y-auto p-6`}>
+                      <div className="flex-1 overflow-y-auto p-6">
                         <div className={`prose prose-sm max-w-none ${
                           darkMode 
                             ? 'prose-invert prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-code:text-blue-300 prose-blockquote:text-gray-300' 

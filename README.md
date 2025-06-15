@@ -21,6 +21,41 @@ A cutting-edge [Next.js](https://nextjs.org) application that transforms videos 
 - **File Upload**: Secure video file handling with validation
 - **API Routes**: Robust backend endpoints for file processing
 
+### Video Analysis API
+- **Endpoint**: `POST /api/analyze`
+- **Description**: This endpoint allows users to upload a video file for analysis. The video is processed using the Google Generative AI SDK to generate structured markdown notes based on the content of the video.
+
+#### Request Body
+The request should include the following JSON structure:
+```json
+{
+  "uploadId": "string",
+  "filePath": "string",
+  "mimeType": "string"
+}
+```
+- **uploadId**: A unique identifier for the upload session.
+- **filePath**: The path to the video file to be analyzed.
+- **mimeType**: The MIME type of the video file (e.g., `video/mp4`).
+
+#### Response
+The API responds with a JSON object containing the analysis results:
+```json
+{
+  "success": true,
+  "notes": "string",
+  "uploadId": "string"
+}
+```
+- **success**: Indicates whether the analysis was successful.
+- **notes**: The generated markdown notes from the video analysis.
+- **uploadId**: The same upload ID provided in the request.
+
+### Advanced Topics and Optimizations
+- **Polling Mechanism**: The API includes a polling mechanism to check the status of the file processing, ensuring that users are informed of the upload status.
+- **Error Handling**: Comprehensive error handling is implemented to provide meaningful feedback in case of failures during the upload or analysis process.
+- **Security Measures**: The API validates file types and handles uploads securely to prevent vulnerabilities.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
